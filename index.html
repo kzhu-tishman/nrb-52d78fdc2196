@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<title>Network Review Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+<header class="topbar">
+  <div class="wrap">
+    <div class="brand">
+      <div class="mark"></div>
+      <div>
+        <div class="eyebrow">Tishman Capital Partners</div>
+        <h1>Network Review Board</h1>
+      </div>
+    </div>
+    <div class="meta">
+      <div class="asof"><span id="asof-label">as of</span> <span id="asof">—</span></div>
+      <button id="refresh" class="ghost" title="Reload live data">Refresh</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <!-- ============ This Week (auto-regenerating action queue) ============ -->
+  <section class="card needs-card" id="needs-card">
+    <div class="section-head">
+      <h2>This Week</h2>
+      <span class="sub">Events needing notes + commitments due soon or overdue</span>
+    </div>
+    <div id="needs-body" class="needs-body"></div>
+  </section>
+
+  <!-- ============ Hosting Assets (always visible strip) ============ -->
+  <section class="strip" id="assets-card">
+    <div class="strip-head">
+      <h2>Hosting Assets</h2>
+      <span class="sub">Golf, dinners, and where we can host</span>
+      <button class="btn-edit-slots" id="edit-slots" title="Edit hosting assets">Edit</button>
+    </div>
+    <div id="asset-tiles" class="tiles"></div>
+    <div class="florida-banner" id="florida-banner"></div>
+  </section>
+
+  <!-- ============ Passive Alerts (new this week / going quiet) ============ -->
+
+
+  <!-- ============ Tabs ============ -->
+  <nav class="tabs" role="tablist">
+    <button class="tab is-active" role="tab" aria-selected="true" data-tab="calendar">Calendar</button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="followups">Threads</button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="lists">Lists</button>
+    <button class="tab" role="tab" aria-selected="false" data-tab="invites">Invites</button>
+  </nav>
+
+  <!-- ============ Panel: Calendar ============ -->
+  <section class="panel is-active" data-panel="calendar">
+    <div class="card" id="calendar-card">
+      <div class="section-head">
+        <h2>Calendar</h2>
+        <span class="sub">Next 90 days</span>
+        <div class="cal-modes" role="tablist" style="margin-left:auto">
+          <button class="cal-mode is-active" data-cal-mode="upcoming">Next 90 →</button>
+          <button class="cal-mode" data-cal-mode="past">← Past 90</button>
+        </div>
+        <button class="primary" id="cal-log-btn" style="margin-left:8px">+ Log interaction</button>
+      </div>
+
+      <div id="calendar-table" class="loading">Loading…</div>
+
+      <div class="notes">
+        <div class="notes-head">
+          <span>Context</span>
+          <button class="linky" data-edit="calendar_notes">Edit</button>
+        </div>
+        <ul id="calendar-notes"></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- Focus panel removed — Hot 10 & Warm 15 now live at the top of the Lists panel -->
+
+  <!-- ============ Panel: Threads (formerly Follow-Ups) ============ -->
+  <section class="panel" data-panel="followups" hidden>
+    <div id="themes-strip"></div>
+    <div class="card" id="followups-card">
+      <div class="section-head">
+        <h2>Threads</h2>
+        <span class="sub">Takeaways and commitments, organized by workstream</span>
+        <div class="cal-modes" role="tablist" style="margin-left:auto">
+          <button class="cal-mode is-active" data-fu-filter="open">Open</button>
+          <button class="cal-mode" data-fu-filter="all">All</button>
+          <button class="cal-mode" data-fu-filter="completed">Done</button>
+        </div>
+        <button class="primary" id="fu-add-btn" style="margin-left:8px">+ New</button>
+      </div>
+      <div id="followups-body" class="loading">Loading…</div>
+    </div>
+  </section>
+
+  <!-- ============ Panel: Lists (rolodex) ============ -->
+  <section class="panel" data-panel="lists" hidden>
+    <div class="rolodex">
+      <aside class="rolodex-index" id="lists-index"></aside>
+      <div class="rolodex-detail" id="lists-detail"></div>
+    </div>
+  </section>
+
+  <!-- ============ Panel: Invites ============ -->
+  <section class="panel" data-panel="invites" hidden>
+    <div class="card" id="invites-card">
+      <div class="section-head">
+        <h2>Invites</h2>
+        <span class="sub">Who we've invited recently — tracks touches even when we haven't seen them</span>
+      </div>
+      <div id="invites-body" class="loading">Loading…</div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ============ Log-touch modal ============ -->
+<div class="modal" id="modal" hidden>
+  <div class="modal-card">
+    <div class="modal-head">
+      <h3 id="modal-title">Log a touch</h3>
+      <button class="close" data-close>&times;</button>
+    </div>
+    <div class="modal-body" id="modal-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" hidden></div>
+
+<script src="./app.js?v=20260914n" defer></script>
+</body>
+</html>
