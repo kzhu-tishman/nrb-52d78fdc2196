@@ -8,8 +8,87 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="./style.css" />
+<style>
+  /* Password gate */
+  #pw-gate{position:fixed;inset:0;background:#F7F6F2;display:flex;align-items:center;justify-content:center;z-index:99999;font-family:Inter,system-ui,-apple-system,sans-serif}
+  #pw-gate .pw-card{background:#fff;border:1px solid #D4D1CA;border-radius:12px;padding:36px 32px;width:340px;box-shadow:0 4px 24px rgba(0,0,0,.04)}
+  #pw-gate h1{margin:0 0 6px;font-family:Fraunces,Georgia,serif;font-size:22px;font-weight:600;color:#28251D}
+  #pw-gate .sub{margin:0 0 22px;font-size:13px;color:#7A7974}
+  #pw-gate input{width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid #D4D1CA;border-radius:8px;font-size:14px;font-family:inherit;outline:none}
+  #pw-gate input:focus{border-color:#01696F;box-shadow:0 0 0 3px rgba(1,105,111,.12)}
+  #pw-gate button{margin-top:12px;width:100%;padding:10px;background:#01696F;color:#fff;border:0;border-radius:8px;font-size:14px;font-weight:600;font-family:inherit;cursor:pointer}
+  #pw-gate button:hover{background:#0C4E54}
+  #pw-gate .err{margin-top:10px;font-size:12px;color:#A12C7B;min-height:16px}
+  body.pw-locked > *:not(#pw-gate){display:none !important}
+</style>
 </head>
-<body>
+<body class="pw-locked">
+
+<!-- Password gate (light protection, not real security) -->
+<div id="pw-gate">
+  <div class="pw-card">
+    <h1>Network Review Board</h1>
+    <p class="sub">Enter password to continue.</p>
+    <form id="pw-form" autocomplete="off">
+      <input id="pw-input" type="password" placeholder="Password" autofocus />
+      <button type="submit">Unlock</button>
+      <div class="err" id="pw-err"></div>
+    </form>
+  </div>
+</div>
+<script>
+  (function(){
+    // NOTE: This is a light gate. Anyone who views source can find the hash below.
+    // Use only to prevent casual URL-sharing. Not real security.
+    var STORAGE_KEY = 'nrb_pw_ok';
+    var TTL_MS = 12 * 60 * 60 * 1000; // 12 hours
+    // SHA-256 of the current password. Change by updating this hash.
+    var EXPECTED = '90a7174575be90c62abe8f9783c820c91a18f324ecf4cc7b735c125a4618edc0';
+
+    function unlock(){
+      document.body.classList.remove('pw-locked');
+      var gate = document.getElementById('pw-gate');
+      if(gate) gate.remove();
+    }
+
+    // Check existing unlock
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        var rec = JSON.parse(raw);
+        if(rec && rec.hash === EXPECTED && (Date.now() - rec.ts) < TTL_MS){
+          unlock();
+          return;
+        }
+      }
+    }catch(e){}
+
+    async function sha256(str){
+      var buf = new TextEncoder().encode(str);
+      var hash = await crypto.subtle.digest('SHA-256', buf);
+      return Array.from(new Uint8Array(hash)).map(function(b){return b.toString(16).padStart(2,'0')}).join('');
+    }
+
+    document.addEventListener('DOMContentLoaded', function(){
+      var form = document.getElementById('pw-form');
+      var input = document.getElementById('pw-input');
+      var err = document.getElementById('pw-err');
+      form.addEventListener('submit', async function(e){
+        e.preventDefault();
+        err.textContent = '';
+        var h = await sha256(input.value);
+        if(h === EXPECTED){
+          try{ localStorage.setItem(STORAGE_KEY, JSON.stringify({hash:h, ts:Date.now()})); }catch(e){}
+          unlock();
+        }else{
+          err.textContent = 'Incorrect password.';
+          input.select();
+        }
+      });
+    });
+  })();
+</script>
+
 <header class="topbar">
   <div class="wrap">
     <div class="brand">
@@ -138,6 +217,6 @@
 
 <div class="toast" id="toast" hidden></div>
 
-<script src="./app.js?v=20260914n" defer></script>
+<script src="./app.js?v=20260916a" defer></script>
 </body>
 </html>
