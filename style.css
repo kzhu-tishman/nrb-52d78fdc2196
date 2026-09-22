@@ -714,6 +714,13 @@ table.cal .col-guests{ color: var(--ink-2); }
 
   /* Needs section rows — keep bullets tight */
   .needs-body { gap: 4px; }
+
+  /* Touch targets — buttons big enough for thumbs */
+  .fu-actions button, .row-remove-btn, .btn-add, .needs-link {
+    padding: 8px 14px; font-size: 13px; min-height: 36px;
+  }
+  .needs-x { min-width: 36px; min-height: 36px; font-size: 16px; }
+  .list-search { width: 100%; margin: 6px 0; }
 }
 
 /* ---------- Needs: group heads, sublabels, travel meta ---------- */
