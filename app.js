@@ -2153,8 +2153,8 @@ function fuSourceBadge(f){
   return `<span class="fu-badge src-${t}">${label}</span>${extra ? `<span class="muted" style="font-size:11px">${extra}</span>` : ""}`;
 }
 
-function fuContactChips(f){
-  const ids = [f.contact_id, ...((f.extra_contact_ids || []))];
+function fuContactChips(f, skipId){
+  const ids = [f.contact_id, ...((f.extra_contact_ids || []))].filter(id => id !== skipId);
   const seen = new Set();
   const chips = ids.filter(id => id && !seen.has(id) && seen.add(id)).map(id => {
     const c = S.contactById[id];
@@ -2186,37 +2186,39 @@ function renderFollowUps(){
     return;
   }
 
-  rows = rows.slice().sort((a, b) => {
-    if (FU_FILTER === "completed") {
-      return (b.completed_at || b.created_at || "").localeCompare(a.completed_at || a.created_at || "");
-    }
-    return (a.created_at || "").localeCompare(b.created_at || "");
-  });
-
-  // Build theme thread → theme name map for badge rendering.
-  const themes = Array.isArray(S.ds.themes) ? S.ds.themes : [];
-  const threadToTheme = {};
-  for (const t of themes) {
-    for (const th of (t.fu_threads || [])) threadToTheme[th] = t.name;
-  }
-
-  // Group by thread. Order: threads that belong to a Theme first (grouped by theme), then other threads, then untagged (solos).
-  const byThread = new Map();
-  const orderedThreads = [];
+  // Group BY PERSON (Katie, 9/22): one block per contact, scannable; "General" (no contact) last.
+  // Within a person: overdue/soonest due first, undated after, then newest.
+  const byPerson = new Map();
   for (const r of rows) {
-    const key = r.thread || `__untagged__`;
-    if (!byThread.has(key)) { byThread.set(key, []); orderedThreads.push(key); }
-    byThread.get(key).push(r);
+    const key = r.contact_id && S.contactById[r.contact_id] ? r.contact_id : "__general__";
+    if (!byPerson.has(key)) byPerson.set(key, []);
+    byPerson.get(key).push(r);
   }
-  // Sort thread keys: theme-linked first, then plain threads, then __untagged__ last.
-  orderedThreads.sort((a, b) => {
-    const aUn = a === "__untagged__" ? 2 : (threadToTheme[a] ? 0 : 1);
-    const bUn = b === "__untagged__" ? 2 : (threadToTheme[b] ? 0 : 1);
-    if (aUn !== bUn) return aUn - bUn;
-    return a.localeCompare(b);
+  const dueKey = (f) => f.due_date || "9999-12-31";
+  for (const list of byPerson.values()) {
+    list.sort((a, b) => {
+      if (FU_FILTER === "completed") return (b.completed_at || "").localeCompare(a.completed_at || "");
+      return dueKey(a).localeCompare(dueKey(b)) || (b.created_at || "").localeCompare(a.created_at || "");
+    });
+  }
+  // Order the people: anyone with an overdue item first (earliest due), then upcoming dues, then undated; General last.
+  const todayIso = iso(TODAY);
+  const groupRank = (key) => {
+    if (key === "__general__") return ["3", ""];
+    const list = byPerson.get(key);
+    const open = list.filter(f => f.status === "open" || f.status === "invited");
+    const dues = open.map(f => f.due_date).filter(Boolean).sort();
+    const name = (S.contactById[key]?.full_name || "").toLowerCase();
+    if (dues.length && dues[0] < todayIso) return ["0" + dues[0], name];
+    if (dues.length) return ["1" + dues[0], name];
+    return ["2", name];
+  };
+  const orderedPeople = [...byPerson.keys()].sort((a, b) => {
+    const [ra, na] = groupRank(a), [rb, nb] = groupRank(b);
+    return ra.localeCompare(rb) || na.localeCompare(nb);
   });
 
-  const rowHtml = (f) => {
+  const rowHtml = (f, groupCid) => {
     const kind = f.item_kind || (f.due_date ? "commitment" : "takeaway");
     const kindBadge = kind === "commitment"
       ? `<span class="fu-badge kind-commit" title="Commitment — has an action / due date">commitment</span>`
@@ -2236,7 +2238,7 @@ function renderFollowUps(){
           ${dueTxt}
         </div>
         <div class="fu-note">${escapeHtml(f.note || "")}</div>
-        ${fuContactChips(f)}
+        ${fuContactChips(f, groupCid)}
       </div>
       <div class="fu-actions">
         ${done ? `<button data-fu-reopen>Reopen</button>` : `<button class="done" data-fu-done>${archiveLbl}</button><button class="dismiss" data-fu-dismiss>Dismiss</button>`}
@@ -2245,25 +2247,15 @@ function renderFollowUps(){
     </div>`;
   };
 
-  // Group header with theme badge if applicable.
-  let lastTheme = null;
-  const html = orderedThreads.map(key => {
-    const list = byThread.get(key);
-    let heading = "";
-    if (key === "__untagged__") {
-      if (lastTheme !== "__u") { lastTheme = "__u"; heading = `<div class="fu-group-lbl untagged-lbl">Untagged</div>`; }
-    } else {
-      const themeName = threadToTheme[key];
-      if (themeName && lastTheme !== themeName) {
-        heading += `<div class="fu-theme-lbl">Theme: ${escapeHtml(themeName)}</div>`;
-        lastTheme = themeName;
-      } else if (!themeName && lastTheme !== "__plain") {
-        heading += `<div class="fu-theme-lbl fu-plain-lbl">Other threads</div>`;
-        lastTheme = "__plain";
-      }
-      heading += `<div class="fu-group-lbl">${escapeHtml(key)}</div>`;
-    }
-    return heading + `<div class="fu-list">${list.map(rowHtml).join("")}</div>`;
+  // One block per person: name + firm header, open count, rows beneath.
+  const html = orderedPeople.map(key => {
+    const list = byPerson.get(key);
+    const c = key === "__general__" ? null : S.contactById[key];
+    const openCt = list.filter(f => f.status === "open" || f.status === "invited").length;
+    const heading = c
+      ? `<div class="fu-group-lbl fu-person-lbl">${escapeHtml(c.full_name)}<span class="fu-person-firm">${c.company ? " · " + escapeHtml(c.company) : ""}</span><span class="fu-person-count">${openCt} open</span></div>`
+      : `<div class="fu-group-lbl untagged-lbl">General</div>`;
+    return heading + `<div class="fu-list">${list.map(f => rowHtml(f, key === "__general__" ? null : key)).join("")}</div>`;
   }).join("");
 
   // If a thread filter is active, show a Clear chip at top.

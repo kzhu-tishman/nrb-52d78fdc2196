@@ -1602,3 +1602,8 @@ tr.open-week.is-quiet .propose-btn { display: none; }
   border-radius:8px;
   line-height:1.6;
 }
+
+/* Threads tab: by-person grouping */
+.fu-person-lbl{ display:flex; align-items:baseline; gap:8px; }
+.fu-person-firm{ color:#8b8577; font-weight:400; font-size:12px; }
+.fu-person-count{ margin-left:auto; font-size:11px; color:#8b8577; font-weight:400; }
