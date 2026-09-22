@@ -617,9 +617,13 @@ function renderNeeds(){
   wrap.querySelectorAll("[data-fu-done]").forEach(btn => {
     btn.addEventListener("click", async (e) => {
       e.preventDefault();
-      await fuUpdate(btn.dataset.fuDone, { status: "completed", completed_at: new Date().toISOString() });
+      const fid = btn.dataset.fuDone;
+      await fuUpdate(fid, { status: "completed", completed_at: new Date().toISOString() });
       renderNeeds();
-      toast("Marked done.");
+      toast("Marked done.", async () => {
+        await fuUpdate(fid, { status: "open", completed_at: null });
+        renderNeeds();
+      });
     });
   });
 
@@ -644,12 +648,17 @@ function renderNeeds(){
     btn.addEventListener("click", async (e) => {
       e.preventDefault();
       const idx = +btn.dataset.removePin;
-      const arr = [...(S.ds.cs_pins || [])];
+      const prev = [...(S.ds.cs_pins || [])];
+      const arr = [...prev];
       arr.splice(idx, 1);
       S.ds.cs_pins = arr;
       await saveState("cs_pins", arr);
       renderNeeds();
-      toast("Pin removed.");
+      toast("Pin removed.", async () => {
+        S.ds.cs_pins = prev;
+        await saveState("cs_pins", prev);
+        renderNeeds();
+      });
     });
   });
 }
@@ -1248,11 +1257,16 @@ function renderTop10(){
 }
 
 async function removeFromFocus(slot, cid) {
-  const arr = focusItems(slot).filter(r => r.contact_id !== cid);
+  const prev = [...focusItems(slot)];
+  const arr = prev.filter(r => r.contact_id !== cid);
   S.ds[slot] = arr;
   renderFocusList(slot); renderLists(); renderAlerts();
   await saveState(slot, arr);
-  toast("Removed.");
+  toast("Removed.", async () => {
+    S.ds[slot] = prev;
+    await saveState(slot, prev);
+    renderFocusList(slot); renderLists(); renderAlerts();
+  });
 }
 
 // Add a contact to a state-backed list (currently only 'active'). For the Active
@@ -1266,12 +1280,17 @@ async function addToFocus(slot, cid, why, tag) {
     row.tag = tag || "new";
     row.tagged_at = iso(TODAY);
   }
+  const prev = (S.ds[slot] || []).slice();
   arr.push(row);
   S.ds[slot] = arr;
   renderLists();
   await saveState(slot, arr);
   const modName = (MODULES.find(m => m.fromState === slot) || {}).name || "list";
-  toast(`Added to ${modName}.`);
+  toast(`Added to ${modName}.`, async () => {
+    S.ds[slot] = prev;
+    await saveState(slot, prev);
+    renderLists();
+  });
 }
 
 // ---------- Render: list modules ----------
@@ -1564,7 +1583,7 @@ function renderListsDetail(){
     const eventOverlayCell = inviteCell;
 
     return subhead + `
-      <tr data-cid="${c.id}">
+      <tr data-cid="${c.id}" data-search="${escapeHtml((c.full_name + " " + (c.company || "") + " " + loc(c)).toLowerCase())}">
         <td class="name-cell">${c.full_name}${isGolfer(c)?'<span class="golf" title="golfer">⛳</span>':''}</td>
         <td>${c.company || ""}</td>
         ${typeCell}
@@ -1620,6 +1639,7 @@ function renderListsDetail(){
         <h2 class="rd-name">${m.name}</h2>
         <div class="rd-purpose">${m.purpose}</div>
       </div>
+      <input type="text" id="list-search" class="list-search" placeholder="Search name / firm / city" autocomplete="off"/>
       <button class="btn-add" data-add-to="${m.id}">+ Add to this list</button>
     </div>
     ${eventFilterHtml}
@@ -1629,8 +1649,37 @@ function renderListsDetail(){
         <thead><tr>${headHtml}</tr></thead>
         <tbody>${body || `<tr><td colspan="${colCount}" style="color:var(--ink-4);padding:14px 10px">No matches.</td></tr>`}</tbody>
       </table>
+      <div id="list-search-elsewhere" class="search-elsewhere" hidden></div>
     </div>
   `;
+
+  // Live search: filters the current list; on zero hits, shows where the person IS.
+  const searchInput = wrap.querySelector("#list-search");
+  const elsewhereBox = wrap.querySelector("#list-search-elsewhere");
+  searchInput.addEventListener("input", () => {
+    const q = searchInput.value.trim().toLowerCase();
+    let visible = 0;
+    wrap.querySelectorAll("tbody tr[data-search]").forEach(tr => {
+      const hit = !q || tr.dataset.search.includes(q);
+      tr.hidden = !hit;
+      if (hit) visible++;
+    });
+    // Subheader rows (tag groups) hide while searching to avoid orphan headers.
+    wrap.querySelectorAll("tbody tr.tag-subhead").forEach(tr => { tr.hidden = !!q; });
+    if (q.length >= 2 && visible === 0) {
+      const hits = S.contacts.filter(c =>
+        (c.full_name + " " + (c.company || "")).toLowerCase().includes(q)).slice(0, 5);
+      elsewhereBox.innerHTML = hits.length
+        ? "Not in this list. " + hits.map(c => {
+            const lists = MODULES.filter(x => x.id !== m.id && rowsForModule(x).some(r => r.id === c.id)).map(x => x.name);
+            return `<b>${escapeHtml(c.full_name)}</b>${c.company ? " · " + escapeHtml(c.company) : ""}${lists.length ? " — in " + lists.join(", ") : " — on no list"}`;
+          }).join("<br/>")
+        : "No contact matches anywhere.";
+      elsewhereBox.hidden = false;
+    } else {
+      elsewhereBox.hidden = true;
+    }
+  });
 
   // Wire "×" uninvite buttons on the invite summary chip.
   wrap.querySelectorAll("[data-uninvite]").forEach(b => b.addEventListener("click", async (e) => {
@@ -1649,13 +1698,18 @@ function renderListsDetail(){
   wrap.querySelectorAll("[data-promote]").forEach(b => b.addEventListener("click", async (e) => {
     e.preventDefault(); e.stopPropagation();
     const cid = b.dataset.promote;
+    const prev = (S.ds[m.fromState] || []).map(r => ({ ...r }));
     const arr = (S.ds[m.fromState] || []).map(r =>
       r.contact_id === cid ? { ...r, tag: "legacy", tagged_at: iso(TODAY) } : r
     );
     S.ds[m.fromState] = arr;
     await saveState(m.fromState, arr);
     renderLists();
-    toast("Promoted to legacy.");
+    toast("Promoted to legacy.", async () => {
+      S.ds[m.fromState] = prev;
+      await saveState(m.fromState, prev);
+      renderLists();
+    });
   }));
 
   wrap.querySelectorAll("[data-log]").forEach(b => b.addEventListener("click", (e) => {
@@ -1831,6 +1885,7 @@ function openAddToListModal(modId){
   document.getElementById("at-save").addEventListener("click", async () => {
     const cid = document.getElementById("at-name").dataset.cid;
     if (!cid) return alert("Pick a contact from the suggestions.");
+    const prevPins = JSON.parse(JSON.stringify(S.ds.list_pins || {}));
     const pins = { ...(S.ds.list_pins||{}) };
     pins[modId] = pins[modId] || { add:[], hide:[] };
     if (!pins[modId].add.includes(cid)) pins[modId].add.push(cid);
@@ -1839,7 +1894,11 @@ function openAddToListModal(modId){
     S.ds.list_pins = pins;
     await saveState("list_pins", pins);
     closeModal(); renderLists();
-    toast("Added to list.");
+    toast("Added to list.", async () => {
+      S.ds.list_pins = prevPins;
+      await saveState("list_pins", prevPins);
+      renderLists();
+    });
   });
 }
 
@@ -1912,7 +1971,13 @@ function openAddGuestModal(eventId){
       const row = await addInvitee(eventId, cid);
       if (row) S.invitees.push(row);
       closeModal(); renderCalendar(); renderNeeds();
-      toast("Guest added.");
+      toast("Guest added.", async () => {
+        if (row && row.id) {
+          await deleteInvitee(row.id);
+          S.invitees = S.invitees.filter(i => i.id !== row.id);
+          renderCalendar(); renderNeeds();
+        }
+      });
     } catch (e) { alert("Add failed: " + e.message); }
   });
 }
@@ -2266,10 +2331,10 @@ document.addEventListener("click", (e) => {
   const id = row.dataset.fuId;
   if (e.target.closest("[data-fu-done]")) {
     fuUpdate(id, { status: "completed", completed_at: new Date().toISOString() });
-    toast("Marked done.");
+    toast("Marked done.", async () => { await fuUpdate(id, { status: "open", completed_at: null }); });
   } else if (e.target.closest("[data-fu-dismiss]")) {
     fuUpdate(id, { status: "dismissed", completed_at: new Date().toISOString() });
-    toast("Dismissed.");
+    toast("Dismissed.", async () => { await fuUpdate(id, { status: "open", completed_at: null }); });
   } else if (e.target.closest("[data-fu-reopen]")) {
     fuUpdate(id, { status: "open", completed_at: null });
     toast("Reopened.");

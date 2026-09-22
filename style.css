@@ -1580,3 +1580,25 @@ tr.open-week.is-quiet .propose-btn { display: none; }
 .inv-c-pend { background: #F0EEE8; color: #7A7974; }
 .inv-date { font-size: 11px; white-space: nowrap; }
 .inv-undo { flex-shrink: 0; }
+
+/* Lists tab live search */
+.list-search{
+  border:1px solid var(--line, #ddd8ce);
+  border-radius:8px;
+  padding:7px 11px;
+  font:inherit;
+  font-size:13px;
+  width:220px;
+  margin-right:10px;
+  background:#fff;
+}
+.list-search:focus{ outline:2px solid #01696F33; border-color:#01696F; }
+.search-elsewhere{
+  margin:10px 4px 0;
+  padding:10px 12px;
+  font-size:12.5px;
+  color:#5c574d;
+  background:#F1EEE7;
+  border-radius:8px;
+  line-height:1.6;
+}
