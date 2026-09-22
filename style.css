@@ -552,8 +552,9 @@ table.cal .col-guests{ color: var(--ink-2); }
 }
 .modal-card {
   background: #fff; border-radius: 6px; width: 460px; max-width: 92vw;
-  box-shadow: 0 20px 60px rgba(0,0,0,.2); overflow: hidden;
+  box-shadow: 0 20px 60px rgba(0,0,0,.2); overflow: visible; /* was hidden — clipped the contact-picker dropdown */
 }
+.modal-head { border-radius: 6px 6px 0 0; background: #fff; }
 .modal-head {
   padding: 14px 20px; border-bottom: 1px solid var(--line);
   display: flex; align-items: center; justify-content: space-between;
@@ -582,9 +583,10 @@ table.cal .col-guests{ color: var(--ink-2); }
 
 .combo { position: relative; }
 .combo-list {
-  position: absolute; top: 100%; left: 0; right: 0; z-index: 5;
+  position: absolute; top: 100%; left: 0; right: 0; z-index: 50;
   background: #fff; border: 1px solid var(--line); border-top: none;
   max-height: 220px; overflow-y: auto; border-radius: 0 0 4px 4px;
+  box-shadow: 0 10px 24px rgba(0,0,0,.12);
 }
 .combo-list div { padding: 6px 10px; font-size: 13px; cursor: pointer; }
 .combo-list div:hover, .combo-list div.hi { background: #FCFBF7; }
