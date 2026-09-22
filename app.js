@@ -1335,6 +1335,15 @@ const MODULES = [
     noteFor: (c) => "",
   },
   {
+    id: "neotribe_invites",
+    name: "Neotribe 10/20 Invites",
+    purpose: "Proposed Tishman invites for the Neotribe co-hosted dinner (Tue 10/20 at Moss). Neotribe signs the contract once 5+ Tishman guests are confirmed.",
+    fromState: "neotribe_invites",
+    pinned: true,
+    hasTags: true,
+    noteFor: (c) => "",
+  },
+  {
     id: "sf_trip_sep",
     name: "SF Trip 9/28–30",
     purpose: "Anchors, Palo Alto, and SF slots for the 9/28–30 swing.",
@@ -1424,7 +1433,7 @@ function rowsForModule(m){
     let stateRows = S.ds[m.fromState] || [];
     if (m.hasTags) {
       // Keep tag grouping (legacy first, then new) but ALPHABETICAL within each tag.
-      const order = { legacy: 0, new: 1, anchor: 0, palo_alto: 1, sf: 2 };
+      const order = { legacy: 0, new: 1, anchor: 0, palo_alto: 1, sf: 2, first_wave: 0, bench: 1, cs_call: 2 };
       stateRows = [...stateRows].sort((a, b) => {
         const g = (order[a.tag] ?? 9) - (order[b.tag] ?? 9);
         if (g !== 0) return g;
@@ -1515,6 +1524,9 @@ function renderListsDetail(){
         anchor: "Anchors — must-see",
         palo_alto: "Palo Alto (Tue)",
         sf: "SF (Mon)",
+        first_wave: "First wave — personal texts",
+        bench: "Bench — backfill declines",
+        cs_call: "Flagged — CS to rule",
       };
       const label = labels[tag] || tag;
       const activeSubCols = (m.id === "active") ? 6 : (isTagged ? 7 : 8);
