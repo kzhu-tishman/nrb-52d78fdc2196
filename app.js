@@ -197,6 +197,7 @@ async function loadAll() {
   S.invitees = invitees;
   S.followups = followups || [];
   S.ds = Object.fromEntries((dsRows||[]).map(r => [r.key, r.value]));
+  rebuildModules();
 
   // Precompute last-touch, first-touch, meaningful-touch, and "played golf with CS"
   S.lastByContact = {};
@@ -1299,7 +1300,7 @@ async function addToFocus(slot, cid, why, tag) {
 // 'legacy' (long-standing important people to keep warm) or 'new' (recent contacts
 // we're trying to solidify). Rendered legacy-first, then new. `tagged_at` powers
 // the quarterly "promote or drop?" nudge for 'new' rows older than 180 days.
-const MODULES = [
+const BASE_MODULES = [
   {
     id: "active",
     name: "Active",
@@ -1436,6 +1437,55 @@ const MODULES = [
   },
 ];
 
+// Custom lists created on the board itself (registry in dashboard_state.custom_lists;
+// each list's rows live in dashboard_state["list_<id>"] as {contact_id, why}).
+let MODULES = BASE_MODULES.slice();
+function customListModules(){
+  const defs = Array.isArray(S.ds?.custom_lists) ? S.ds.custom_lists : [];
+  return defs.map(d => ({
+    id: "cl_" + d.id,
+    name: d.name,
+    purpose: d.purpose || "Custom list.",
+    fromState: "list_" + d.id,
+    noteFor: (c) => "",
+    custom: true,
+  }));
+}
+function rebuildModules(){ MODULES = BASE_MODULES.concat(customListModules()); }
+
+function openNewListModal(){
+  openModal("New list", `
+    <label>List name</label>
+    <input type="text" id="nl-name" placeholder="e.g. Golfers in Dallas" autocomplete="off"/>
+    <label>Purpose (optional, shown under the title)</label>
+    <input type="text" id="nl-purpose" placeholder="e.g. Pull when a Dallas trip firms up" autocomplete="off"/>
+    <div class="modal-actions">
+      <button data-close>Cancel</button>
+      <button class="primary" id="nl-save">Create</button>
+    </div>`);
+  document.getElementById("nl-name").focus();
+  document.getElementById("nl-save").addEventListener("click", async () => {
+    const name = document.getElementById("nl-name").value.trim();
+    if (!name) return alert("Give the list a name.");
+    const purpose = document.getElementById("nl-purpose").value.trim();
+    const id = name.toLowerCase().replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "").slice(0, 40) + "_" + Date.now().toString(36).slice(-4);
+    const prev = Array.isArray(S.ds.custom_lists) ? [...S.ds.custom_lists] : [];
+    const defs = [...prev, { id, name, purpose, created_at: iso(TODAY) }];
+    S.ds.custom_lists = defs;
+    await saveState("custom_lists", defs);
+    rebuildModules();
+    SELECTED_LIST = "cl_" + id;
+    closeModal(); renderLists();
+    toast(`List "${name}" created.`, async () => {
+      S.ds.custom_lists = prev;
+      await saveState("custom_lists", prev);
+      rebuildModules();
+      SELECTED_LIST = MODULES[0].id;
+      renderLists();
+    });
+  });
+}
+
 // Track which list is currently selected in the rolodex
 let SELECTED_LIST = MODULES[0].id;
 let LISTS_EVENT_FILTER = null; // event.id when Lists panel is in "filter by event" (View B) mode
@@ -1506,6 +1556,7 @@ function renderListsIndex(){
     <ul class="rolodex-index-items">${pinned.map(renderMod).join("")}</ul>
     <div class="rolodex-index-head" style="margin-top:14px">Rolodex</div>
     <ul class="rolodex-index-items">${others.map(renderMod).join("")}</ul>
+    <button class="linky new-list-btn" id="new-list-btn">+ New list</button>
   `;
   idx.querySelectorAll("[data-mod]").forEach(el => {
     el.addEventListener("click", () => {
@@ -1514,6 +1565,8 @@ function renderListsIndex(){
       renderListsDetail();
     });
   });
+  const nlb = idx.querySelector("#new-list-btn");
+  if (nlb) nlb.addEventListener("click", (e) => { e.preventDefault(); openNewListModal(); });
 }
 
 function renderListsDetail(){
@@ -1641,6 +1694,7 @@ function renderListsDetail(){
       </div>
       <input type="text" id="list-search" class="list-search" placeholder="Search name / firm / city" autocomplete="off"/>
       <button class="btn-add" data-add-to="${m.id}">+ Add to this list</button>
+      ${m.custom ? `<button class="linky del-list-btn" id="del-list-btn" title="Delete this list">Delete list</button>` : ""}
     </div>
     ${eventFilterHtml}
     ${nudgeHtml}
@@ -1757,6 +1811,26 @@ function renderListsDetail(){
     if (mod && mod.fromState) return openAddFocusModal(mod.fromState); // hot10 / warm15
     openAddToListModal(modId);
   }));
+
+  // Custom lists only: delete the list itself (registry entry; rows kept for undo).
+  const delBtn = wrap.querySelector("#del-list-btn");
+  if (delBtn && m.custom) delBtn.addEventListener("click", async (e) => {
+    e.preventDefault();
+    const prevDefs = [...(S.ds.custom_lists || [])];
+    const defs = prevDefs.filter(d => "cl_" + d.id !== m.id);
+    S.ds.custom_lists = defs;
+    await saveState("custom_lists", defs);
+    rebuildModules();
+    SELECTED_LIST = MODULES[0].id;
+    renderLists();
+    toast(`List "${m.name}" deleted.`, async () => {
+      S.ds.custom_lists = prevDefs;
+      await saveState("custom_lists", prevDefs);
+      rebuildModules();
+      SELECTED_LIST = m.id;
+      renderLists();
+    });
+  });
 }
 
 // ---------- Modals ----------
