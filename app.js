@@ -1340,7 +1340,6 @@ const MODULES = [
     purpose: "Proposed Tishman invites for the Neotribe co-hosted dinner (Tue 10/20 at Moss). Neotribe signs the contract once 5+ Tishman guests are confirmed.",
     fromState: "neotribe_invites",
     pinned: true,
-    hasTags: true,
     noteFor: (c) => "",
   },
   {
