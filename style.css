@@ -1620,3 +1620,7 @@ tr.open-week.is-quiet .propose-btn { display: none; }
 /* Custom lists */
 .new-list-btn{ display:block; margin:12px 0 0 4px; font-size:12.5px; }
 .del-list-btn{ margin-left:10px; font-size:12px; color:#A12C7B; }
+
+/* Lists: keep the Note/Why column readable — never let table auto-layout crush it.
+   The detail body already scrolls horizontally, so the extra width is safe. */
+.rolodex-detail-body td.note-cell { min-width: 220px; max-width: 340px; }

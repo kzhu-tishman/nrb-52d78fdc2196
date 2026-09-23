@@ -1612,7 +1612,7 @@ function renderListsDetail(){
     // For tagged lists we drop the Type column. Note column stays for SF Trip (shows "why").
     const dropNote = (m.id === "active");
     const typeCell = isTagged ? "" : `<td>${escapeHtml(industryLabel(c))}</td>`;
-    const noteCell = dropNote ? "" : `<td>${escapeHtml(noteText)}</td>`;
+    const noteCell = dropNote ? "" : `<td class="note-cell">${escapeHtml(noteText)}</td>`;
 
     // "Invites" cell: status chip for LAST invite + count + × undo.
     // Tooltip on hover shows the full event name and date.
